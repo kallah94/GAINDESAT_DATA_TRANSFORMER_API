@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Erlang SDK">
+    <CLASSES>
+      <root url="file://$USER_HOME$/.asdf/installs/erlang" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
