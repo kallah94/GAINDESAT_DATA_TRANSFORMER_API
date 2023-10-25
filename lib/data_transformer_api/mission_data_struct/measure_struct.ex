@@ -23,6 +23,7 @@ defmodule MeasureStruct do
 
   @typedoc "A sensor data format"
   typedstruct do
+    field :id_station, Integer.t(), enforce: true
     field :sensor_id, Integer.t(), enforce: true
     field :parameter_value, Integer.t(), enforce: true
     field :measure_timestamp, DateTime.t(), enforce: false

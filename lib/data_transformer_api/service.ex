@@ -18,13 +18,15 @@ defmodule DataTransformerApi.Service do
   @pl_file_prefix "PL%"
 
 
-  def decoder(data), do: DataTransformerApi.Workers.decoder(data)
+  def decoder(data), do: Workers.decoder(data)
 
-  def decode_timestamp(data), do: DataTransformerApi.Workers.decode_timestamp(data)
+  def decode_timestamp(data), do: Workers.decode_timestamp(data)
 
-  def decode_payload_file(data), do: DataTransformerApi.Workers.decode_payload_file(data)
+  def decode_payload_file(data), do: Workers.decode_payload_file(data)
 
-  def decode_sensor_data_package(payload), do: DataTransformerApi.Workers.decode_sensor_data_package(payload)
+  def decode_sensor_data_package(payload), do: Workers.decode_sensor_data_package(payload)
+
+  def concat_payload_files_data(files), do: Workers.concat_payload_files_data(files)
 
   def get_token() do
    body = Poison.encode!(%{
@@ -65,15 +67,6 @@ defmodule DataTransformerApi.Service do
         |> Repo.all
       false -> {:error, "Date not valid, provide UTC date format"}
     end
-  end
-
-  def concat_payload_files_data(files) do
-    files
-    |> Enum.map(fn file -> file.decoded_str end)
-    |> Workers.process_data()
-    |> Enum.map( fn file -> file.payload end)
-    |> List.foldr("", fn payload, acc -> payload <> acc end)
-    |> String.split("cafe")
   end
 
 end
