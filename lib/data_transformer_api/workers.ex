@@ -55,6 +55,14 @@ defmodule DataTransformerApi.Workers do
     |> Enum.map(fn file -> decode_payload_file(file) end)
     |> Enum.map(fn payload -> decoder(payload) end)
     |> Enum.filter(fn decoded_payload -> is_struct(decoded_payload) end)
+    |> packet_assembler([])
+    |> Enum.map(fn package ->  Map.put(package, :set_of_data_packet, package.set_of_data_packet |> set_of_packet_splitter) end)
+    |> Enum.map(fn package -> decode_packets(package) end)
+    |> List.flatten
+    |> Enum.map(fn packet -> Map.put(packet, :set_of_measures, packet.set_of_measures |> set_measures_splitter) end)
+    |> Enum.map(fn packet -> decode_packet_measures(packet) end)
+    |> List.flatten
+
   end
 
   def decode_sensor_data_package(payload) do
@@ -79,24 +87,40 @@ defmodule DataTransformerApi.Workers do
     |> String.split("cafe")
   end
 
-  def concat_set_of_packets(packages) do
-    packages
-    |> Enum.map(fn package -> package.set_of_data_packet end)
-    |> List.foldr("", fn packet, acc -> packet <> acc end)
-  end
 
-
-  def decode_sensor_data_packet(package) do
-    data = package.set_of_data_packet
+  def decode_sensor_data_packet(id_station, packet) do
     %DataPacketStruct{
-        id_station: package.id_station,
-        na: String.slice(data, 0..1),
-        number_total_of_packet: String.slice(data, 4..5) <> String.slice(data, 2..3) |> String.to_integer(16),
-        number_of_packet: String.slice(data, 8..9) <> String.slice(data, 6..7) |> String.to_integer(16),
-        number_total_of_measures: String.slice(data, 10..13) |> String.to_integer(16),
-        set_of_measures: String.slice(data, 14..-1//1)
+        id_station: id_station,
+        na: String.slice(packet, 0..1),
+        number_total_of_packet: String.slice(packet, 4..5) <> String.slice(packet, 2..3) |> String.to_integer(16),
+        number_of_packet: String.slice(packet, 8..9) <> String.slice(packet, 6..7) |> String.to_integer(16),
+        number_total_of_measures: String.slice(packet, 10..13) |> String.to_integer(16),
+        set_of_measures: String.slice(packet, 14..-1//1)
     }
   end
+
+  def decode_packets(package) do
+    package.set_of_data_packet |> Enum.map(fn packet -> decode_sensor_data_packet(package.id_station, packet) end)
+  end
+
+  def decode_single_measure(id_station, measure)  when byte_size(measure) >= 16 do
+      %MeasureStruct{
+        id_station: id_station,
+        sensor_id: String.slice(measure, 0..1) |> String.to_integer(16),
+        parameter_value: String.slice(measure, 2..5) |> String.to_integer(16),
+        measure_timestamp: String.slice(measure, 6..13) |> String.to_integer(16) |> DateTime.from_unix!(),
+        parameter_type: String.slice(measure, 14..16)
+      }
+  end
+
+  def decode_single_measure(_id_station, measure) when byte_size(measure) < 16 do
+    nil
+  end
+
+  def decode_packet_measures(packet) do
+    packet.set_of_measures |> Enum.map(fn measure -> decode_single_measure(packet.id_station, measure) end)
+  end
+
 
   def packet_assembler(packages, all_packages) do
     cond do
@@ -141,23 +165,6 @@ defmodule DataTransformerApi.Workers do
     set_of_measures
     |> String.split(~r/.{16}/, include_captures: true, trim: true)
   end
-
-  def decode_single_measure(measure, id_station) do
-    case byte_size(measure) do
-      16 ->
-      %MeasureStruct{
-        id_station: id_station,
-        sensor_id: String.slice(measure, 0..1) |> String.to_integer(16),
-        parameter_value: String.slice(measure, 2..5) |> String.to_integer(16),
-        measure_timestamp: String.slice(measure, 6..13) |> String.to_integer(16) |> DateTime.from_unix!(),
-        parameter_type: String.slice(measure, 14..16)
-      }
-
-      _ -> measure
-    end
-
-  end
-
 
   def decoder(payload) do
     case payload.tc_code do
