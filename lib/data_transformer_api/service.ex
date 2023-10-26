@@ -9,8 +9,7 @@ defmodule DataTransformerApi.Service do
   alias PlFileStruct
   alias HTTPoison
   alias TokenStruct
-  alias DataTransformerApi.Workers
-
+  alias DataTransformerApi.SensorDataProcessing
   @admin_username "Admin"
   @admin_password "moussaFall"
   @base_url "http://localhost:8080/api/auth/signin"
@@ -18,15 +17,7 @@ defmodule DataTransformerApi.Service do
   @pl_file_prefix "PL%"
 
 
-  def decoder(data), do: Workers.decoder(data)
-
-  def decode_timestamp(data), do: Workers.decode_timestamp(data)
-
-  def decode_payload_file(data), do: Workers.decode_payload_file(data)
-
-  def decode_sensor_data_package(payload), do: Workers.decode_sensor_data_package(payload)
-
-  def concat_payload_files_data(files), do: Workers.concat_payload_files_data(files)
+  def decode_measures(files), do: SensorDataProcessing.decode_measures(files)
 
   def get_token() do
    body = Poison.encode!(%{
@@ -51,9 +42,6 @@ defmodule DataTransformerApi.Service do
     )
     |> Repo.all
   end
-
-
-
 
   def fetch_recent_payload_files(date \\ @default_date) do
     case Timex.is_valid?(date) do

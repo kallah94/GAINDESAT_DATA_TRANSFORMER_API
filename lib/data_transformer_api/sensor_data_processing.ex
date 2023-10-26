@@ -1,7 +1,6 @@
-defmodule SensorDataProcessing do
+defmodule DataTransformerApi.SensorDataProcessing do
   @moduledoc "Documentation for `SensorDataProcessing` Functions define here are for mission data decoding"
-
-
+  import DataTransformerApi.Workers, only: [decode_payload_file: 1, concat_payload_files_data: 1]
 
   @doc """
     This function take a `%PayloadStruct{}` as input and produce a  `%CollectedDataStruct{}`
@@ -126,5 +125,33 @@ defmodule SensorDataProcessing do
   defp set_measures_splitter(set_of_measures) do
     set_of_measures
     |> String.split(~r/.{16}/, include_captures: true, trim: true)
+  end
+
+  defp decoder(payload) do
+    case payload.tc_code do
+      "0a" -> decode_sensor_data_package(payload)
+      _ -> {:ok, "not concern"}
+    end
+  end
+
+
+
+  def decode_measures(files) do
+    #write_data = &(File.write!("slides.json", &1))
+    files
+    |> concat_payload_files_data
+    |> List.delete_at(0)
+    |> Enum.map(fn file -> decode_payload_file(file) end)
+    |> Enum.map(fn payload -> decoder(payload) end)
+    |> Enum.filter(fn decoded_payload -> is_struct(decoded_payload) end)
+    |> packet_assembler([])
+    |> Enum.map(fn package ->  Map.put(package, :set_of_data_packet, package.set_of_data_packet |> set_of_packet_splitter) end)
+    |> Enum.map(fn package -> decode_packets(package) end)
+    |> List.flatten
+    |> Enum.map(fn packet -> Map.put(packet, :set_of_measures, packet.set_of_measures |> set_measures_splitter) end)
+    |> Enum.map(fn packet -> decode_packet_measures(packet) end)
+    |> List.flatten
+    #|> Poison.encode!()
+    #|> write_data.()
   end
 end
