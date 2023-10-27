@@ -59,6 +59,7 @@
       <excludeFolder url="file://$MODULE_DIR$/_build/dev/lib/timex" />
       <excludeFolder url="file://$MODULE_DIR$/_build/dev/lib/tzdata" />
       <excludeFolder url="file://$MODULE_DIR$/_build/dev/lib/unicode_util_compat" />
+      <excludeFolder url="file://$MODULE_DIR$/_build/dev/lib/elixlsx" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
@@ -135,5 +136,15 @@
     <orderEntry type="library" name="combine" level="project" />
     <orderEntry type="library" name="benchfella" level="project" />
     <orderEntry type="library" name="poison" level="project" />
+    <orderEntry type="library" name="elixlsx" level="project" />
+    <orderEntry type="library" name="benchee_html" level="project" />
+    <orderEntry type="library" name="exjsx" level="project" />
+    <orderEntry type="library" name="jiffy" level="project" />
+    <orderEntry type="library" name="json" level="project" />
+    <orderEntry type="library" name="jsone" level="project" />
+    <orderEntry type="library" name="junit_formatter" level="project" />
+    <orderEntry type="library" name="tiny" level="project" />
+    <orderEntry type="library" name="excheck" level="project" />
+    <orderEntry type="library" name="triq" level="project" />
   </component>
 </module>
