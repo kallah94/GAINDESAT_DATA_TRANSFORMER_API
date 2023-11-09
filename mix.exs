@@ -45,8 +45,8 @@ defmodule DataTransformerApi.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:httpoison, "~> 2.1"},
       {:timex, "~> 3.7"},
-      {:poison, "~> 5.0"}
-
+      {:poison, "~> 5.0"},
+      {:elixlsx, "~> 0.5.1"}
     ]
   end
 

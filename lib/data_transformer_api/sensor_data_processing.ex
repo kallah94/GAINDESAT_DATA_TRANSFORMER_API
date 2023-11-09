@@ -1,11 +1,8 @@
-defmodule SensorDataProcessing do
+defmodule DataTransformerApi.SensorDataProcessing do
   @moduledoc "Documentation for `SensorDataProcessing` Functions define here are for mission data decoding"
+  import DataTransformerApi.Workers, only: [decode_payload_file: 1, concat_payload_files_data: 1]
+  alias Elixlsx.{Sheet, Workbook}
 
-
-
-  @doc """
-    This function take a `%PayloadStruct{}` as input and produce a  `%CollectedDataStruct{}`
-  """
   defp decode_sensor_data_package(payload) do
     %CollectedDataStruct{
       cafe: payload.cafe,
@@ -19,10 +16,6 @@ defmodule SensorDataProcessing do
     }
   end
 
-
-  @doc """
-    This function take a `%CollectedDataStruct{}` as input and produce a  `%DataPacketStruct{}`
-  """
   defp decode_sensor_data_packet(id_station, packet) do
     %DataPacketStruct{
       id_station: id_station,
@@ -34,17 +27,29 @@ defmodule SensorDataProcessing do
     }
   end
 
-  @doc """
-    This function take a `%CollectedDataStruct{}` as input and produce a `[%DataPacketStruct{}]`
-  """
   defp decode_packets(package) do
     package.set_of_data_packet |> Enum.map(fn packet -> decode_sensor_data_packet(package.id_station, packet) end)
   end
 
-  @doc """
-    This function take a String chain as input and produce a `%MeasureStruct{}` readable for human when the String chain length is
-  equal or greater than 16 and return `nil` otherwise
-  """
+  defp parameter_type_setter(parameter_code) do
+    case parameter_code do
+      "01" -> "water_height"
+      "02" -> "water_temp"
+      "03" -> "ambient_temp"
+      "04" -> "precipitations"
+      "05" -> "wind_speed"
+      "06" -> "wind_direction"
+      "07" -> "specific_water_conductivity"
+      "08" -> "salinity"
+      "09" -> "total_dissolved_solids"
+      "0a" -> "compass"
+      "0b" -> "relative_water_humidity"
+      "0c" -> "barometric_pressure"
+      "0d" -> "global_radiation"
+      _ -> "Unknown"
+    end
+  end
+
   defp decode_single_measure(id_station, measure) do
     case byte_size(measure) >= 16 do
       true -> %MeasureStruct{
@@ -52,24 +57,16 @@ defmodule SensorDataProcessing do
                 sensor_id: String.slice(measure, 0..1) |> String.to_integer(16),
                 parameter_value: String.slice(measure, 2..5) |> String.to_integer(16),
                 measure_timestamp: String.slice(measure, 6..13) |> String.to_integer(16) |> DateTime.from_unix!(),
-                parameter_type: String.slice(measure, 14..16)
+                parameter_type: String.slice(measure, 14..16) |> parameter_type_setter
               }
       false -> nil
     end
   end
 
-  @doc """
-    This function take a `%DataPacketStruct{}` as input and produce a `[%MeasureStruct{}]`
-  """
   defp decode_packet_measures(packet) do
     packet.set_of_measures |> Enum.map(fn measure -> decode_single_measure(packet.id_station, measure) end)
   end
 
-
-  @doc """
-  This function take a list of package and merge packages when they meets conditions define in `concatenable` and return
-  a new modified packages list: `packages` => `all_packages`
-"""
   defp packet_assembler(packages, all_packages) do
     cond do
       length(packages) == 0 -> all_packages
@@ -89,9 +86,6 @@ defmodule SensorDataProcessing do
     end
   end
 
-  @doc """
-  This function take two packages and test if they are mergeable
-"""
   defp concatenable(package_1, package_2) do
     condition = (is_struct(package_1) && (is_struct(package_2)))
     case condition do
@@ -102,29 +96,61 @@ defmodule SensorDataProcessing do
     end
   end
 
-  @doc """
-    This function take two package and update set_of_data_packet field of the second package by merging the value with the value of the
-    set_of_data_packet of the first package and return the second package
-  """
   defp update_package(package1, package2) do
     Map.put(package2, :set_of_data_packet, package1.set_of_data_packet <> package2.set_of_data_packet)
   end
 
-  @doc """
-  This function take the field `set_of_data_packet` for a `%CollectedDataStruct{}` and split as a list of string with the
-  same length `94`
-  """
+
   defp set_of_packet_splitter(set_of_data_packet) do
     set_of_data_packet
     |> String.split(~r/.{94}/, include_captures: true, trim: true)
   end
 
-  @doc """
-  This function take the field `set_of_measures` for a `%DataPacketStruct{}` and split as a list of string with the
-  same length `16`
-  """
   defp set_measures_splitter(set_of_measures) do
     set_of_measures
     |> String.split(~r/.{16}/, include_captures: true, trim: true)
+  end
+
+  defp decoder(payload) do
+    case payload.tc_code do
+      "0a" -> decode_sensor_data_package(payload)
+      _ -> {:ok, "not concern"}
+    end
+  end
+
+  defp measure_transformer(measure) do
+    [measure.id_station, measure.sensor_id, measure.parameter_value, measure.parameter_type, DateTime.to_string(measure.measure_timestamp)]
+  end
+
+  defp measures_collector(measures) do
+    measures |> Enum.map(fn measure -> measure_transformer(measure) end)
+  end
+
+  defp excel_writer(measures) do
+    sheet = Sheet.with_name("STATION-DATA.xlsx")
+    workbook = %Workbook{}
+    cell_titles = ["station_id", "sensor_id", "value", "parameter_type", "timestamp"]
+    measures = measures_collector(measures) |> List.insert_at(0, cell_titles)
+    sheet = Map.put(sheet, :rows, measures)
+    workbook = Workbook.append_sheet(workbook, sheet)
+    workbook |> Elixlsx.write_to("CollectedData.xlsx")
+  end
+
+  def decode_measures(files) do
+    files
+    |> concat_payload_files_data
+    |> List.delete_at(0)
+    |> Enum.map(fn file -> decode_payload_file(file) end)
+    |> Enum.map(fn payload -> decoder(payload) end)
+    |> Enum.filter(fn decoded_payload -> is_struct(decoded_payload) end)
+    |> packet_assembler([])
+    |> Enum.map(fn package ->  Map.put(package, :set_of_data_packet, package.set_of_data_packet |> set_of_packet_splitter) end)
+    |> Enum.map(fn package -> decode_packets(package) end)
+    |> List.flatten
+    |> Enum.map(fn packet -> Map.put(packet, :set_of_measures, packet.set_of_measures |> set_measures_splitter) end)
+    |> Enum.map(fn packet -> decode_packet_measures(packet) end)
+    |> List.flatten
+    |> Enum.filter(fn data -> data != nil end)
+    |> excel_writer()
   end
 end

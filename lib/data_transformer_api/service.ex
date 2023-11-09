@@ -9,24 +9,16 @@ defmodule DataTransformerApi.Service do
   alias PlFileStruct
   alias HTTPoison
   alias TokenStruct
-  alias DataTransformerApi.Workers
-
+  alias DataTransformerApi.SensorDataProcessing
   @admin_username "Admin"
   @admin_password "moussaFall"
   @base_url "http://localhost:8080/api/auth/signin"
   @default_date DateTime.utc_now() |> DateTime.add(-24, :hour)
+  @default_next_date DateTime.utc_now() |> DateTime.add(24, :hour)
   @pl_file_prefix "PL%"
 
 
-  def decoder(data), do: Workers.decoder(data)
-
-  def decode_timestamp(data), do: Workers.decode_timestamp(data)
-
-  def decode_payload_file(data), do: Workers.decode_payload_file(data)
-
-  def decode_sensor_data_package(payload), do: Workers.decode_sensor_data_package(payload)
-
-  def concat_payload_files_data(files), do: Workers.concat_payload_files_data(files)
+  def decode_measures(files), do: SensorDataProcessing.decode_measures(files)
 
   def get_token() do
    body = Poison.encode!(%{
@@ -52,15 +44,12 @@ defmodule DataTransformerApi.Service do
     |> Repo.all
   end
 
-
-
-
-  def fetch_recent_payload_files(date \\ @default_date) do
+  def fetch_recent_payload_files(date\\ @default_date) do
     case Timex.is_valid?(date) do
       true ->
         from(
         file in Gaindesat1File,
-        where: like( file.file_name, ^@pl_file_prefix ) and ( file.file_modification_timestamp >= ^date),
+        where: like(file.file_name, ^@pl_file_prefix ) and (file.file_modification_timestamp >= ^date),
         order_by: [asc: :file_modification_timestamp, asc: :file_name],
         select: file
         )
@@ -69,4 +58,17 @@ defmodule DataTransformerApi.Service do
     end
   end
 
+  def fetch_payload_today_files(begin_date, end_date) do
+    case (Timex.is_valid?(begin_date) and Timex.is_valid?(end_date)) do
+      true ->
+        from(
+          file in Gaindesat1File,
+            where: like(file.file_name, ^@pl_file_prefix) and (file.file_modification_timestamp >= ^begin_date and file.file_modification_timestamp <= ^end_date),
+            order_by: [asc: :file_modification_timestamp, asc: :file_name],
+            select: file
+        )
+        |> Repo.all
+      false -> {:error, "Date not valid, provide UTC date format"}
+    end
+  end
 end
