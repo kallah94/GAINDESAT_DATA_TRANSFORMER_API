@@ -14,6 +14,7 @@ defmodule DataTransformerApi.Service do
   @admin_password "moussaFall"
   @base_url "http://localhost:8080/api/auth/signin"
   @default_date DateTime.utc_now() |> DateTime.add(-24, :hour)
+  @default_next_date DateTime.utc_now() |> DateTime.add(24, :hour)
   @pl_file_prefix "PL%"
 
 
@@ -43,12 +44,12 @@ defmodule DataTransformerApi.Service do
     |> Repo.all
   end
 
-  def fetch_recent_payload_files(date \\ @default_date) do
+  def fetch_recent_payload_files(date\\ @default_date) do
     case Timex.is_valid?(date) do
       true ->
         from(
         file in Gaindesat1File,
-        where: like( file.file_name, ^@pl_file_prefix ) and ( file.file_modification_timestamp >= ^date),
+        where: like(file.file_name, ^@pl_file_prefix ) and (file.file_modification_timestamp >= ^date),
         order_by: [asc: :file_modification_timestamp, asc: :file_name],
         select: file
         )
@@ -57,4 +58,17 @@ defmodule DataTransformerApi.Service do
     end
   end
 
+  def fetch_payload_today_files(begin_date, end_date) do
+    case (Timex.is_valid?(begin_date) and Timex.is_valid?(end_date)) do
+      true ->
+        from(
+          file in Gaindesat1File,
+            where: like(file.file_name, ^@pl_file_prefix) and (file.file_modification_timestamp >= ^begin_date and file.file_modification_timestamp <= ^end_date),
+            order_by: [asc: :file_modification_timestamp, asc: :file_name],
+            select: file
+        )
+        |> Repo.all
+      false -> {:error, "Date not valid, provide UTC date format"}
+    end
+  end
 end

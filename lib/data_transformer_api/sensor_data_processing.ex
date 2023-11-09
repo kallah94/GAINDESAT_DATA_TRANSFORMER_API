@@ -31,6 +31,25 @@ defmodule DataTransformerApi.SensorDataProcessing do
     package.set_of_data_packet |> Enum.map(fn packet -> decode_sensor_data_packet(package.id_station, packet) end)
   end
 
+  defp parameter_type_setter(parameter_code) do
+    case parameter_code do
+      "01" -> "water_height"
+      "02" -> "water_temp"
+      "03" -> "ambient_temp"
+      "04" -> "precipitations"
+      "05" -> "wind_speed"
+      "06" -> "wind_direction"
+      "07" -> "specific_water_conductivity"
+      "08" -> "salinity"
+      "09" -> "total_dissolved_solids"
+      "0a" -> "compass"
+      "0b" -> "relative_water_humidity"
+      "0c" -> "barometric_pressure"
+      "0d" -> "global_radiation"
+      _ -> "Unknown"
+    end
+  end
+
   defp decode_single_measure(id_station, measure) do
     case byte_size(measure) >= 16 do
       true -> %MeasureStruct{
@@ -38,7 +57,7 @@ defmodule DataTransformerApi.SensorDataProcessing do
                 sensor_id: String.slice(measure, 0..1) |> String.to_integer(16),
                 parameter_value: String.slice(measure, 2..5) |> String.to_integer(16),
                 measure_timestamp: String.slice(measure, 6..13) |> String.to_integer(16) |> DateTime.from_unix!(),
-                parameter_type: String.slice(measure, 14..16)
+                parameter_type: String.slice(measure, 14..16) |> parameter_type_setter
               }
       false -> nil
     end
@@ -99,10 +118,25 @@ defmodule DataTransformerApi.SensorDataProcessing do
     end
   end
 
+  defp measure_transformer(measure) do
+    [measure.id_station, measure.sensor_id, measure.parameter_value, measure.parameter_type, DateTime.to_string(measure.measure_timestamp)]
+  end
 
+  defp measures_collector(measures) do
+    measures |> Enum.map(fn measure -> measure_transformer(measure) end)
+  end
+
+  defp excel_writer(measures) do
+    sheet = Sheet.with_name("STATION-DATA.xlsx")
+    workbook = %Workbook{}
+    cell_titles = ["station_id", "sensor_id", "value", "parameter_type", "timestamp"]
+    measures = measures_collector(measures) |> List.insert_at(0, cell_titles)
+    sheet = Map.put(sheet, :rows, measures)
+    workbook = Workbook.append_sheet(workbook, sheet)
+    workbook |> Elixlsx.write_to("CollectedData.xlsx")
+  end
 
   def decode_measures(files) do
-    #write_data = &(File.write!("slides.json", &1))
     files
     |> concat_payload_files_data
     |> List.delete_at(0)
@@ -118,25 +152,5 @@ defmodule DataTransformerApi.SensorDataProcessing do
     |> List.flatten
     |> Enum.filter(fn data -> data != nil end)
     |> excel_writer()
-    #|> Poison.encode!()
-    #|> write_data.()
-  end
-
-  def measure_transformer(measure) do
-    [measure.id_station, measure.sensor_id, measure.parameter_value, measure.parameter_type, DateTime.to_string(measure.measure_timestamp)]
-  end
-
-  def measures_collector(measures) do
-    measures |> Enum.map(fn measure -> measure_transformer(measure) end)
-  end
-
-  def excel_writer(measures) do
-    sheet = Sheet.with_name("STATION-DATA.xlsx")
-    workbook = %Workbook{}
-    cell_titles = ["station_id", "sensor_id", "value", "parameter_type", "timestamp"]
-    measures = measures_collector(measures) |> List.insert_at(0, cell_titles)
-    sheet = Map.put(sheet, :rows, measures)
-    workbook = Workbook.append_sheet(workbook, sheet)
-    workbook |> Elixlsx.write_to("CollectedData.xlsx")
   end
 end
