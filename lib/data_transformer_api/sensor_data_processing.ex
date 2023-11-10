@@ -3,7 +3,7 @@ defmodule DataTransformerApi.SensorDataProcessing do
   import DataTransformerApi.Workers, only: [decode_payload_file: 1, concat_payload_files_data: 1]
   alias Elixlsx.{Sheet, Workbook}
 
-  defp decode_sensor_data_package(payload) do
+  def decode_sensor_data_package(payload) do
     %CollectedDataStruct{
       cafe: payload.cafe,
       timestamp: payload.timestamp,
@@ -16,22 +16,28 @@ defmodule DataTransformerApi.SensorDataProcessing do
     }
   end
 
-  defp decode_sensor_data_packet(id_station, packet) do
-    %DataPacketStruct{
-      id_station: id_station,
-      na: String.slice(packet, 0..1),
-      number_total_of_packet: String.slice(packet, 4..5) <> String.slice(packet, 2..3) |> String.to_integer(16),
-      number_of_packet: String.slice(packet, 8..9) <> String.slice(packet, 6..7) |> String.to_integer(16),
-      number_total_of_measures: String.slice(packet, 10..13) |> String.to_integer(16),
-      set_of_measures: String.slice(packet, 14..-1//1)
-    }
+  def decode_sensor_data_packet(id_station, packet) do
+    case byte_size(packet) >= 16 do
+      true ->
+        %DataPacketStruct{
+        id_station: id_station,
+        na: String.slice(packet, 0..1),
+        number_of_packet: String.slice(packet, 4..5) <> String.slice(packet, 2..3) |> String.to_integer(16),
+        number_total_of_packet: String.slice(packet, 8..9) <> String.slice(packet, 6..7) |> String.to_integer(16),
+        number_total_of_measures: String.slice(packet, 10..13) |> String.to_integer(16),
+        set_of_measures: String.slice(packet, 14..-1//1)
+      }
+      false -> nil
+    end
   end
 
-  defp decode_packets(package) do
-    package.set_of_data_packet |> Enum.map(fn packet -> decode_sensor_data_packet(package.id_station, packet) end)
-  end
+  def decode_packets(package) do
+    package.set_of_data_packet
+    |> Enum.map(fn packet -> decode_sensor_data_packet(package.id_station, packet) end)
+    |> Enum.filter(fn packet -> packet != nil end)
+    end
 
-  defp parameter_type_setter(parameter_code) do
+  def parameter_type_setter(parameter_code) do
     case parameter_code do
       "01" -> "water_height"
       "02" -> "water_temp"
@@ -46,11 +52,12 @@ defmodule DataTransformerApi.SensorDataProcessing do
       "0b" -> "relative_water_humidity"
       "0c" -> "barometric_pressure"
       "0d" -> "global_radiation"
+      "00" -> "default"
       _ -> "Unknown"
     end
   end
 
-  defp decode_single_measure(id_station, measure) do
+  def decode_single_measure(id_station, measure) do
     case byte_size(measure) >= 16 do
       true -> %MeasureStruct{
                 id_station: id_station,
@@ -63,30 +70,40 @@ defmodule DataTransformerApi.SensorDataProcessing do
     end
   end
 
-  defp decode_packet_measures(packet) do
+  def decode_packet_measures(packet) do
     packet.set_of_measures |> Enum.map(fn measure -> decode_single_measure(packet.id_station, measure) end)
   end
 
-  defp packet_assembler(packages, all_packages) do
-    cond do
-      length(packages) == 0 -> all_packages
-      length(packages) > 0 ->
-        package1 = packages |> List.first
+  def packet_assembler(packages, all_packages) when length(packages) <= 0 do
+    all_packages
+  end
+
+  def packet_assembler(packages, all_packages) do
+    package1 = packages |> List.first
+    packages = packages |> List.delete_at(0)
+    package2 = packages |> List.first
+    case concatenable(package1, package2) do
+      true ->
         packages = packages |> List.delete_at(0)
-        package2 = packages |> List.first
-        case concatenable(package1, package2) do
+        temp_package = update_package(package1, package2)
+        case (temp_package.nb_package < temp_package.nb_total_package) do
           true ->
-            all_packages = List.insert_at(all_packages, -1, update_package(package1, package2))
-            packages = packages |> List.delete_at(0)
+            packages = packages |> List.insert_at(0, temp_package)
             packet_assembler(packages, all_packages)
           false ->
-            all_packages =  List.insert_at(all_packages, -1, package1)
+            packages = packages
+            all_packages = all_packages |> List.insert_at(-1, temp_package)
             packet_assembler(packages, all_packages)
         end
+
+      false ->
+        all_packages =  List.insert_at(all_packages, -1, package1)
+        packet_assembler(packages, all_packages)
     end
   end
 
-  defp concatenable(package_1, package_2) do
+
+  def concatenable(package_1, package_2) do
     condition = (is_struct(package_1) && (is_struct(package_2)))
     case condition do
       true ->  (package_2.id_station == package_1.id_station)
@@ -96,37 +113,30 @@ defmodule DataTransformerApi.SensorDataProcessing do
     end
   end
 
-  defp update_package(package1, package2) do
+  def update_package(package1, package2) do
     Map.put(package2, :set_of_data_packet, package1.set_of_data_packet <> package2.set_of_data_packet)
   end
 
 
-  defp set_of_packet_splitter(set_of_data_packet) do
+  def set_of_packet_splitter(set_of_data_packet) do
     set_of_data_packet
     |> String.split(~r/.{94}/, include_captures: true, trim: true)
   end
 
-  defp set_measures_splitter(set_of_measures) do
+  def set_measures_splitter(set_of_measures) do
     set_of_measures
     |> String.split(~r/.{16}/, include_captures: true, trim: true)
   end
 
-  defp decoder(payload) do
-    case payload.tc_code do
-      "0a" -> decode_sensor_data_package(payload)
-      _ -> {:ok, "not concern"}
-    end
-  end
-
-  defp measure_transformer(measure) do
+  def measure_transformer(measure) do
     [measure.id_station, measure.sensor_id, measure.parameter_value, measure.parameter_type, DateTime.to_string(measure.measure_timestamp)]
   end
 
-  defp measures_collector(measures) do
+  def measures_collector(measures) do
     measures |> Enum.map(fn measure -> measure_transformer(measure) end)
   end
 
-  defp excel_writer(measures) do
+  def excel_writer(measures) do
     sheet = Sheet.with_name("STATION-DATA.xlsx")
     workbook = %Workbook{}
     cell_titles = ["station_id", "sensor_id", "value", "parameter_type", "timestamp"]
@@ -141,7 +151,8 @@ defmodule DataTransformerApi.SensorDataProcessing do
     |> concat_payload_files_data
     |> List.delete_at(0)
     |> Enum.map(fn file -> decode_payload_file(file) end)
-    |> Enum.map(fn payload -> decoder(payload) end)
+    |> Enum.filter(fn data -> data.tc_code == "0a" end )
+    |> Enum.map(fn payload -> decode_sensor_data_package(payload) end)
     |> Enum.filter(fn decoded_payload -> is_struct(decoded_payload) end)
     |> packet_assembler([])
     |> Enum.map(fn package ->  Map.put(package, :set_of_data_packet, package.set_of_data_packet |> set_of_packet_splitter) end)

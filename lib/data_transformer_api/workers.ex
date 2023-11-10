@@ -52,5 +52,7 @@ defmodule DataTransformerApi.Workers do
     |> Enum.map( fn file -> file.payload end)
     |> List.foldr("", fn payload, acc -> payload <> acc end)
     |> String.split("cafe")
+    |> List.delete_at(0)
   end
+
 end
