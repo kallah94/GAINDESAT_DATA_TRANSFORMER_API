@@ -8,7 +8,7 @@ defmodule DataTransformerApi.SensorDataProcessing do
       cafe: payload.cafe,
       timestamp: payload.timestamp,
       tc_code: payload.tc_code,
-      id_station: String.slice(payload.data, 0..1) |> String.to_integer(16),
+      id_station: String.slice(payload.data, 0..1),
       nb_package: String.slice(payload.data, 2..3) |> String.to_integer(16),
       nb_total_package: String.slice(payload.data, 4..5) |> String.to_integer(16),
       size_package: String.slice(payload.data, 6..9) |> String.to_integer(16),
@@ -39,20 +39,56 @@ defmodule DataTransformerApi.SensorDataProcessing do
 
   def parameter_type_setter(parameter_code) do
     case parameter_code do
-      "01" -> "water_height"
-      "02" -> "water_temp"
-      "03" -> "ambient_temp"
+      "01" -> "Hauteur Eau"
+      "02" -> "Température Eau"
+      "03" -> "Température Ambiante"
       "04" -> "precipitations"
-      "05" -> "wind_speed"
-      "06" -> "wind_direction"
-      "07" -> "specific_water_conductivity"
-      "08" -> "salinity"
-      "09" -> "total_dissolved_solids"
-      "0a" -> "compass"
-      "0b" -> "relative_water_humidity"
-      "0c" -> "barometric_pressure"
-      "0d" -> "global_radiation"
-      "00" -> "default"
+      "05" -> "Vitesse Vent"
+      "06" -> "Orientation Vent"
+      "07" -> "Conductivité Specifique Eau"
+      "08" -> "Salinité"
+      "09" -> "TDS"
+      "0a" -> "Boussole"
+      "0b" -> "Humudité Relative Eau"
+      "0c" -> "Pression Barométrique"
+      "0d" -> "Rayonnement Global"
+      "00" -> "Defaut"
+      _ -> "Unknown"
+    end
+  end
+
+  def station_code_setter(station_id) do
+    case station_id do
+      "06" -> "STE"
+      "07" -> "BNG"
+      "08" -> "ZOR"
+      "09" -> "NTH"
+      "0a" -> "NBA"
+      "0b" -> "DYE"
+      "0c" -> "RLL"
+      "0d" -> "NGL"
+      _ -> "unknown"
+    end
+  end
+
+  def sensor_code_setter(sensor_id) do
+    case sensor_id do
+      "01" -> "PLS-C"
+      "02" -> "SE200"
+      "03" -> "WS601"
+      "04" -> "PLS-C"
+      "05" -> "SE200"
+      "06" -> "WS601"
+      "07" -> "PLS-C"
+      "08" -> "SE200"
+      "09" -> "WS601"
+      "0a" -> "PLS-C"
+      "0b" -> "SE200"
+      "0c" -> "WS601"
+      "0d" -> "PLS-C"
+      "0e" -> "SE200"
+      "0F" -> "WS601"
+      "00" -> "Default"
       _ -> "Unknown"
     end
   end
@@ -60,8 +96,8 @@ defmodule DataTransformerApi.SensorDataProcessing do
   def decode_single_measure(id_station, measure) do
     case byte_size(measure) >= 16 do
       true -> %MeasureStruct{
-                id_station: id_station,
-                sensor_id: String.slice(measure, 0..1) |> String.to_integer(16),
+                id_station: id_station |> station_code_setter,
+                sensor_id: String.slice(measure, 0..1) |> sensor_code_setter,
                 parameter_value: String.slice(measure, 2..5) |> String.to_integer(16),
                 measure_timestamp: String.slice(measure, 6..13) |> String.to_integer(16) |> DateTime.from_unix!(),
                 parameter_type: String.slice(measure, 14..16) |> parameter_type_setter
@@ -139,7 +175,7 @@ defmodule DataTransformerApi.SensorDataProcessing do
   def excel_writer(measures) do
     sheet = Sheet.with_name("STATION-DATA.xlsx")
     workbook = %Workbook{}
-    cell_titles = ["station_id", "sensor_id", "value", "parameter_type", "timestamp"]
+    cell_titles = ["station_code", "sensor_code", "value", "parameter_type", "timestamp"]
     measures = measures_collector(measures) |> List.insert_at(0, cell_titles)
     sheet = Map.put(sheet, :rows, measures)
     workbook = Workbook.append_sheet(workbook, sheet)
@@ -158,10 +194,11 @@ defmodule DataTransformerApi.SensorDataProcessing do
     |> Enum.map(fn package ->  Map.put(package, :set_of_data_packet, package.set_of_data_packet |> set_of_packet_splitter) end)
     |> Enum.map(fn package -> decode_packets(package) end)
     |> List.flatten
+    |> Enum.filter( fn packet -> packet.number_total_of_measures <= 420 end)
     |> Enum.map(fn packet -> Map.put(packet, :set_of_measures, packet.set_of_measures |> set_measures_splitter) end)
     |> Enum.map(fn packet -> decode_packet_measures(packet) end)
     |> List.flatten
     |> Enum.filter(fn data -> data != nil end)
-    |> excel_writer()
+    #|> excel_writer()
   end
 end
