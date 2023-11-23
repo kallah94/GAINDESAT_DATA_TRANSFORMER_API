@@ -42,7 +42,7 @@ defmodule DataTransformerApi.SensorDataProcessing do
       "01" -> "Hauteur Eau"
       "02" -> "Température Eau"
       "03" -> "Température Ambiante"
-      "04" -> "precipitations"
+      "04" -> "Precipitations"
       "05" -> "Vitesse Vent"
       "06" -> "Orientation Vent"
       "07" -> "Conductivité Specifique Eau"
@@ -71,33 +71,34 @@ defmodule DataTransformerApi.SensorDataProcessing do
     end
   end
 
-  def sensor_code_setter(sensor_id) do
+  def sensor_code_setter(sensor_id, station_id) do
     case sensor_id do
-      "01" -> "PLS-C"
-      "02" -> "SE200"
-      "03" -> "WS601"
-      "04" -> "PLS-C"
-      "05" -> "SE200"
-      "06" -> "WS601"
-      "07" -> "PLS-C"
-      "08" -> "SE200"
-      "09" -> "WS601"
-      "0a" -> "PLS-C"
-      "0b" -> "SE200"
-      "0c" -> "WS601"
-      "0d" -> "PLS-C"
-      "0e" -> "SE200"
-      "0F" -> "WS601"
-      "00" -> "Default"
+      "01" -> "PLS-C_"<>station_id
+      "02" -> "SE200_"<>station_id
+      "03" -> "WS601_"<>station_id
+      "04" -> "PLS-C_"<>station_id
+      "05" -> "SE200_"<>station_id
+      "06" -> "WS601_"<>station_id
+      "07" -> "PLS-C_"<>station_id
+      "08" -> "SE200_"<>station_id
+      "09" -> "WS601_"<>station_id
+      "0a" -> "PLS-C_"<>station_id
+      "0b" -> "SE200_"<>station_id
+      "0c" -> "WS601_"<>station_id
+      "0d" -> "PLS-C_"<>station_id
+      "0e" -> "SE200_"<>station_id
+      "0F" -> "WS601_"<>station_id
+      "00" -> "Default_"<>station_id
       _ -> "Unknown"
     end
   end
 
   def decode_single_measure(id_station, measure) do
+    id_station = id_station |> station_code_setter
     case byte_size(measure) >= 16 do
       true -> %MeasureStruct{
-                id_station: id_station |> station_code_setter,
-                sensor_id: String.slice(measure, 0..1) |> sensor_code_setter,
+                id_station: id_station,
+                sensor_id: String.slice(measure, 0..1) |> sensor_code_setter(id_station),
                 parameter_value: String.slice(measure, 2..5) |> String.to_integer(16),
                 measure_timestamp: String.slice(measure, 6..13) |> String.to_integer(16) |> DateTime.from_unix!(),
                 parameter_type: String.slice(measure, 14..16) |> parameter_type_setter

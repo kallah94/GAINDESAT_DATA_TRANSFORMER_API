@@ -46,6 +46,7 @@ defmodule DataTransformerApi.Service do
       {:ok, %HTTPoison.Response{status_code: 200, body: body }} -> Poison.decode!(body)
       {:error, %HTTPoison.Error{reason: :econnrefused, id: nil}} -> {:error, "Server not response"}
       {:ok, %HTTPoison.Response{status_code: 500, body: "not saved"}} -> {:error, "Measure not saved"}
+      {_, _} -> {:error, "Error Occur"}
     end
   end
 
