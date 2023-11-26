@@ -18,31 +18,10 @@ defmodule DataTransformerApi.Service do
   @default_next_date DateTime.utc_now() |> DateTime.add(24, :hour)
   @pl_file_prefix "PL%"
 
-
-  def decode_measures(files), do: SensorDataProcessing.decode_measures(files)
-
-
-  def get_token() do
-   body = Poison.encode!(%{
-     username: @admin_username,
-     password: @admin_password,
-   })
-
-   case HTTPoison.post( @auth_url, body, %{"Content-Type" => "application/json"}) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: body }} -> Poison.decode!(body, as: %TokenStruct{})
-
-      {:ok, %HTTPoison.Response{status_code: 401, body: body }} -> Poison.decode!(body)
-
-      {:error, %HTTPoison.Error{reason: :econnrefused, id: nil}} -> {:error, "Server not response"}
-
-      _ -> {:error, "Any clause match"}
-   end
-  end
-
-  def create_mission_data(measure) do
+  def create_mission_data(measure, token) do
     body = Poison.encode!(measure)
 
-    case HTTPoison.post(@mission_data_url, body, %{"Content-Type" => "application/json", "Authorization" => "Bearer #{get_token().accessToken}"}) do
+    case HTTPoison.post(@mission_data_url, body, %{"Content-Type" => "application/json", "Authorization" => "Bearer #{token}"}) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body }} -> Poison.decode!(body)
       {:error, %HTTPoison.Error{reason: :econnrefused, id: nil}} -> {:error, "Server not response"}
       {:ok, %HTTPoison.Response{status_code: 500, body: "not saved"}} -> {:error, "Measure not saved"}

@@ -1,6 +1,7 @@
 defmodule DataTransformerApi.SensorDataProcessing do
   @moduledoc "Documentation for `SensorDataProcessing` Functions define here are for mission data decoding"
   import DataTransformerApi.Workers, only: [decode_payload_file: 1, concat_payload_files_data: 1]
+  import DataTransformerApi.Service, only: [create_mission_data: 2]
   alias Elixlsx.{Sheet, Workbook}
 
   def decode_sensor_data_package(payload) do
@@ -183,10 +184,9 @@ defmodule DataTransformerApi.SensorDataProcessing do
     workbook |> Elixlsx.write_to("CollectedData.xlsx")
   end
 
-  def decode_measures(files) do
+  def decode_measures(files, token) do
     files
     |> concat_payload_files_data
-    |> List.delete_at(0)
     |> Enum.map(fn file -> decode_payload_file(file) end)
     |> Enum.filter(fn data -> data.tc_code == "0a" end )
     |> Enum.map(fn payload -> decode_sensor_data_package(payload) end)
@@ -200,6 +200,7 @@ defmodule DataTransformerApi.SensorDataProcessing do
     |> Enum.map(fn packet -> decode_packet_measures(packet) end)
     |> List.flatten
     |> Enum.filter(fn data -> data != nil end)
+    |> Enum.map(fn measure -> create_mission_data(measure, token) end)
     #|> excel_writer()
   end
 end

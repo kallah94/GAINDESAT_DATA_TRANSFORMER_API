@@ -13,7 +13,8 @@ defmodule DataTransformerApi.Workers do
   def process_element(element) do
     data = element
            |> String.split(",")
-    data = Enum.zip([:file_name, :file_creation_time, :file_modification_time, :first_sector, :file_size, :root_add, :payload], data)
+    data = Enum.zip([:file_name, :file_creation_time, :file_modification_time, :first_sector,
+      :file_size, :root_add, :payload], data)
            |> Enum.into(%{})
     %PlFileStruct{
       file_name: data.file_name,
@@ -22,7 +23,7 @@ defmodule DataTransformerApi.Workers do
       first_sector: data.first_sector,
       file_size: data.file_size,
       root_add: data.root_add,
-      payload: data.payload |> String.replace(" ", "") #|> String.split(~r/.{4}/, include_captures: true, trim: true)
+      payload: data.payload |> String.replace(" ", "")
     }
   end
 

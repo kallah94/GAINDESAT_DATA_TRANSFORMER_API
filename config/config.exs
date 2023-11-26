@@ -12,8 +12,8 @@ config :data_transformer_api,
 
 config :data_transformer_api, DataTransformerApi.Repo,
   database: "csum_gs_db",
-  username: "csum_admin",
-  password: "aghuftiew123",
+  username: "postgres",
+  password: "kallah",
   hostname: "localhost"
 
 config :data_transformer_api,

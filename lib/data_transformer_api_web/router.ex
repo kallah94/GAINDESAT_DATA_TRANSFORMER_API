@@ -7,6 +7,7 @@ defmodule DataTransformerApiWeb.Router do
 
   scope "/api", DataTransformerApiWeb do
     pipe_through :api
+    post "/decoding", DecodingController, :decode
   end
 
   # Enables LiveDashboard only for development
