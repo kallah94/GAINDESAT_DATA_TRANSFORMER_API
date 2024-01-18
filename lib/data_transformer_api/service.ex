@@ -12,27 +12,21 @@ defmodule DataTransformerApi.Service do
   alias DataTransformerApi.SensorDataProcessing
   @admin_username "Admin"
   @admin_password "moussaFall"
-  @base_url "http://localhost:8080/api/auth/signin"
+  @auth_url "http://localhost:8080/api/auth/signin"
+  @mission_data_url "localhost:8080/api/v1/admin/mission-data/dt"
   @default_date DateTime.utc_now() |> DateTime.add(-24, :hour)
   @default_next_date DateTime.utc_now() |> DateTime.add(24, :hour)
   @pl_file_prefix "PL%"
 
+  def create_mission_data(measure, token) do
+    body = Poison.encode!(measure)
 
-  def decode_measures(files), do: SensorDataProcessing.decode_measures(files)
-
-  def get_token() do
-   body = Poison.encode!(%{
-     username: @admin_username,
-     password: @admin_password,
-   })
-
-   case HTTPoison.post( @base_url, body, %{"Content-Type" => "application/json"}) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: body }} -> Poison.decode!(body, as: %TokenStruct{})
-
-      {:ok, %HTTPoison.Response{status_code: 401, body: body }} -> Poison.decode!(body)
-
+    case HTTPoison.post(@mission_data_url, body, %{"Content-Type" => "application/json", "Authorization" => "Bearer #{token}"}) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body }} -> Poison.decode!(body)
       {:error, %HTTPoison.Error{reason: :econnrefused, id: nil}} -> {:error, "Server not response"}
-   end
+      {:ok, %HTTPoison.Response{status_code: 500, body: "not saved"}} -> {:error, "Measure not saved"}
+      {_, _} -> {:error, "Error Occur"}
+    end
   end
 
   def fetch_payload_files do

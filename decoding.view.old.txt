@@ -1,0 +1,33 @@
+defmodule DataTransformerApiWeb.DecodingView do
+  use DataTransformerApiWeb, :view
+  alias DataTransformerApiWeb.DecodingView
+
+  def render("index.json", %{decodings: decodings}) do
+    %{data: render_many(decodings, DecodingView, "decoding.json")}
+  end
+
+  def render("show.json", %{decoding: decoding}) do
+    %{data: render_one(decoding, DecodingView, "decoding.json")}
+  end
+
+  def render("decoding.json", %{decoding: decoding}) do
+    %{id: decoding.id}
+  end
+end
+
+  def get_token() do
+   body = Poison.encode!(%{
+     username: @admin_username,
+     password: @admin_password,
+   })
+
+   case HTTPoison.post( @auth_url, body, %{"Content-Type" => "application/json"}) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body }} -> Poison.decode!(body, as: %TokenStruct{})
+
+      {:ok, %HTTPoison.Response{status_code: 401, body: body }} -> Poison.decode!(body)
+
+      {:error, %HTTPoison.Error{reason: :econnrefused, id: nil}} -> {:error, "Server not response"}
+
+      _ -> {:error, "Any clause match"}
+   end
+  end

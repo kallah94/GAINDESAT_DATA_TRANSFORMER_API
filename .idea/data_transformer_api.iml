@@ -60,6 +60,7 @@
       <excludeFolder url="file://$MODULE_DIR$/_build/dev/lib/tzdata" />
       <excludeFolder url="file://$MODULE_DIR$/_build/dev/lib/unicode_util_compat" />
       <excludeFolder url="file://$MODULE_DIR$/_build/dev/lib/elixlsx" />
+      <excludeFolder url="file://$MODULE_DIR$/_build/dev/lib/poison" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
@@ -146,5 +147,12 @@
     <orderEntry type="library" name="tiny" level="project" />
     <orderEntry type="library" name="excheck" level="project" />
     <orderEntry type="library" name="triq" level="project" />
+    <orderEntry type="module-library">
+      <library name="Elixir 1.15.7">
+        <CLASSES />
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
   </component>
 </module>

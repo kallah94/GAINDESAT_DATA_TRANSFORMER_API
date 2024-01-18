@@ -1,0 +1,43 @@
+defmodule DataTransformerApiWeb.DecodingController do
+  use DataTransformerApiWeb, :controller
+
+  alias DataTransformerApi.Decoders
+  alias DataTransformerApi.Decoders.Decoding
+
+  action_fallback DataTransformerApiWeb.FallbackController
+
+  def index(conn, _params) do
+    decodings = Decoders.list_decodings()
+    render(conn, "index.json", decodings: decodings)
+  end
+
+  def create(conn, %{"decoding" => decoding_params}) do
+    with {:ok, %Decoding{} = decoding} <- Decoders.create_decoding(decoding_params) do
+      conn
+      |> put_status(:created)
+      |> put_resp_header("location", Routes.decoding_path(conn, :show, decoding))
+      |> render("show.json", decoding: decoding)
+    end
+  end
+
+  def show(conn, %{"id" => id}) do
+    decoding = Decoders.get_decoding!(id)
+    render(conn, "show.json", decoding: decoding)
+  end
+
+  def update(conn, %{"id" => id, "decoding" => decoding_params}) do
+    decoding = Decoders.get_decoding!(id)
+
+    with {:ok, %Decoding{} = decoding} <- Decoders.update_decoding(decoding, decoding_params) do
+      render(conn, "show.json", decoding: decoding)
+    end
+  end
+
+  def delete(conn, %{"id" => id}) do
+    decoding = Decoders.get_decoding!(id)
+
+    with {:ok, %Decoding{}} <- Decoders.delete_decoding(decoding) do
+      send_resp(conn, :no_content, "")
+    end
+  end
+end
