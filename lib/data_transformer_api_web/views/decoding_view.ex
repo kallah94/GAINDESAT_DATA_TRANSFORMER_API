@@ -5,7 +5,7 @@ defmodule DataTransformerApiWeb.DecodingView do
 
   def render("decode.json", %{decoding: decoding}) do
     %{
-    token: decoding.token,
+    token: "",
     startDate: decoding.startDate,
     endDate: decoding.endDate
     }

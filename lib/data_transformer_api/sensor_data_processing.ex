@@ -58,6 +58,25 @@ defmodule DataTransformerApi.SensorDataProcessing do
     end
   end
 
+  def parameter_unit_setter(parameter_code) do
+    case parameter_code do
+      "01" -> "m"
+      "02" -> "°C"
+      "03" -> "°C"
+      "04" -> "mm"
+      "05" -> "km/h"
+      "06" -> "°"
+      "07" -> "tbd"
+      "08" -> "tbd"
+      "09" -> "tbd"
+      "0a" -> "tbd"
+      "0b" -> "tbd"
+      "0c" -> "tbd"
+      "0d" -> "tbd"
+      _ -> "unknown"
+    end
+  end
+
   def station_code_setter(station_id) do
     case station_id do
       "06" -> "STE"
@@ -101,8 +120,9 @@ defmodule DataTransformerApi.SensorDataProcessing do
                 id_station: id_station,
                 sensor_id: String.slice(measure, 0..1) |> sensor_code_setter(id_station),
                 parameter_value: String.slice(measure, 2..5) |> String.to_integer(16),
-                measure_timestamp: String.slice(measure, 6..13) |> String.to_integer(16) |> DateTime.from_unix!(),
-                parameter_type: String.slice(measure, 14..16) |> parameter_type_setter
+                measure_timestamp: String.slice(measure, 6..13) |> String.to_integer(16) |> DateTime.from_unix!() |> DateTime.to_naive(),
+                parameter_type: String.slice(measure, 14..16) |> parameter_type_setter,
+                unit: String.slice(measure, 14..16) |> parameter_unit_setter
               }
       false -> nil
     end
@@ -201,6 +221,5 @@ defmodule DataTransformerApi.SensorDataProcessing do
     |> List.flatten
     |> Enum.filter(fn data -> data != nil end)
     |> Enum.map(fn measure -> create_mission_data(measure, token) end)
-    #|> excel_writer()
   end
 end

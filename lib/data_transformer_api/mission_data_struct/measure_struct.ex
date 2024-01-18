@@ -28,6 +28,7 @@ defmodule MeasureStruct do
     field :parameter_value, Integer.t(), enforce: true
     field :measure_timestamp, DateTime.t(), enforce: false
     field :parameter_type, String.t(), enforce: false
+    field :unit, String.t(), enforce: false
   end
 
 end
